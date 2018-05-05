@@ -585,10 +585,40 @@ big_integer big_integer::operator~() const
 
 big_integer operator<<(big_integer a, int b)
 {
-    big_integer x(1);
-    for (int i = 0; i < b; i++)
-        x *= 2;
-    return a * x;
+    std::vector<uint32_t> res(a.number);
+
+    std::reverse(res.begin(), res.end());
+    while (static_cast<uint32_t>(b) >= big_integer::LOG_BASE)
+    {
+        res.push_back(0);
+        b -= big_integer::LOG_BASE;
+    }
+    std::reverse(res.begin(), res.end());
+    if (b > 0)
+    {
+        // b in [1..31]
+        res.push_back(0);
+        for (size_t bit = big_integer::LOG_BASE * res.size() - 1; bit > 0; bit--)
+        {
+            size_t next_bit;
+
+            res[bit / big_integer::LOG_BASE] &= ~(1u << (bit % big_integer::LOG_BASE));
+
+            if (bit >= static_cast<size_t>(b))
+            {
+                next_bit = bit - static_cast<size_t>(b);
+
+                if (res[next_bit / big_integer::LOG_BASE] & (1u << (next_bit % big_integer::LOG_BASE)))
+                {
+                    res[bit / big_integer::LOG_BASE] |= (1u << (bit % big_integer::LOG_BASE));
+                }
+            }
+        }
+
+        res[0] &= ~(1u);
+    }
+
+    return big_integer(res, a.sign);
 }
 
 big_integer& big_integer::operator<<=(int rhs)
@@ -598,15 +628,38 @@ big_integer& big_integer::operator<<=(int rhs)
 
 big_integer operator>>(big_integer a, int b)
 {
-    big_integer res(a);
-    while (b > 0)
+    std::vector<uint32_t> res(a.number);
+
+    std::reverse(res.begin(), res.end());
+    while (static_cast<uint32_t>(b) >= big_integer::LOG_BASE)
     {
-        res /= 2;
-        b--;
+        res.pop_back();
+        b -= big_integer::LOG_BASE;
     }
+    std::reverse(res.begin(), res.end());
+    if (b > 0)
+    {
+        // b in [1..31]
+        res.push_back(0);
+        for (size_t bit = 0; bit < big_integer::LOG_BASE * (res.size() - 1); bit++)
+        {
+            size_t next_bit;
+
+            res[bit / big_integer::LOG_BASE] &= ~(1u << (bit % big_integer::LOG_BASE));
+
+            next_bit = bit + static_cast<size_t>(b);
+
+            if (res[next_bit / big_integer::LOG_BASE] & (1u << (next_bit % big_integer::LOG_BASE)))
+            {
+                res[bit / big_integer::LOG_BASE] |= (1u << (bit % big_integer::LOG_BASE));
+            }
+        }
+
+    }
+    big_integer tmp(res, a.sign);
     if (a.sign)
-        res -= 1;
-    return res;
+        tmp -= 1;
+    return tmp;
 }
 
 big_integer& big_integer::operator>>=(int rhs)
