@@ -740,7 +740,7 @@ big_integer& big_integer::operator<<=(int rhs)
 
 big_integer operator>>(big_integer a, int b)
 {
-    std::vector<uint32_t> res(a.number);
+    std::vector<uint32_t> res(a.number.size());
 
     std::reverse(res.begin(), res.end());
     while (static_cast<uint32_t>(b) >= big_integer::LOG_BASE)
@@ -749,25 +749,20 @@ big_integer operator>>(big_integer a, int b)
         b -= big_integer::LOG_BASE;
     }
     std::reverse(res.begin(), res.end());
+
     if (b > 0)
     {
-        // b in [1..31]
         res.push_back(0);
-        for (size_t bit = 0; bit < big_integer::LOG_BASE * (res.size() - 1); bit++)
+        for (size_t i = 0; i < res.size() - 1; i++)
         {
-            size_t next_bit;
-
-            res[bit / big_integer::LOG_BASE] &= ~(1u << (bit % big_integer::LOG_BASE));
-
-            next_bit = bit + static_cast<size_t>(b);
-
-            if (res[next_bit / big_integer::LOG_BASE] & (1u << (next_bit % big_integer::LOG_BASE)))
-            {
-                res[bit / big_integer::LOG_BASE] |= (1u << (bit % big_integer::LOG_BASE));
-            }
+            uint64_t tmp = (static_cast<uint64_t>((i + 1 < a.size() ? a.number[i + 1] : 0)) << (32))
+                           ^ static_cast<uint64_t>(a.number[i]);
+            tmp >>= b;
+            res[i] |= static_cast<uint32_t>(tmp & UINT32_MAX);
+            res[i + 1] |= static_cast<uint32_t>(tmp >> 32);
         }
-
     }
+
     big_integer tmp(res, a.sign);
     if (a.sign)
         tmp -= 1;
