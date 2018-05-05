@@ -652,9 +652,49 @@ big_integer big_integer::operator~() const
 }
 
 
+void emplace_shl(std::vector<uint32_t> const &src, int b, std::vector<uint32_t> &dest)
+{
+    //dest = src;
+    dest.resize(src.size());
+    std::copy(src.begin(), src.end(), dest.begin());
+    std::reverse(dest.begin(), dest.end());
+    while (static_cast<uint32_t>(b) >= big_integer::LOG_BASE)
+    {
+        dest.push_back(0);
+        b -= big_integer::LOG_BASE;
+    }
+    std::reverse(dest.begin(), dest.end());
+    if (b > 0)
+    {
+        // b in [1..31]
+        dest.push_back(0);
+        for (size_t bit = big_integer::LOG_BASE * dest.size() - 1; bit > 0; bit--)
+        {
+            size_t next_bit;
+
+            dest[bit / big_integer::LOG_BASE] &= ~(1u << (bit % big_integer::LOG_BASE));
+
+            if (bit >= static_cast<size_t>(b))
+            {
+                next_bit = bit - static_cast<size_t>(b);
+
+                if (dest[next_bit / big_integer::LOG_BASE] & (1u << (next_bit % big_integer::LOG_BASE)))
+                {
+                    dest[bit / big_integer::LOG_BASE] |= (1u << (bit % big_integer::LOG_BASE));
+                }
+            }
+        }
+
+        dest[0] &= ~(1u);
+    }
+}
+
 big_integer operator<<(big_integer a, int b)
 {
-    std::vector<uint32_t> res(a.number);
+    std::vector<uint32_t> tmp;
+    emplace_shl(a.number, b, tmp);
+    return big_integer(tmp, a.sign);
+    /*std::vector<uint32_t> res(a.number);
 
     std::reverse(res.begin(), res.end());
     while (static_cast<uint32_t>(b) >= big_integer::LOG_BASE)
@@ -687,12 +727,15 @@ big_integer operator<<(big_integer a, int b)
         res[0] &= ~(1u);
     }
 
-    return big_integer(res, a.sign);
+    return big_integer(res, a.sign);*/
 }
 
 big_integer& big_integer::operator<<=(int rhs)
 {
-    return *this = *this << rhs;
+    //return *this = *this << rhs;
+    emplace_shl(this->number, rhs, this->number);
+    this->normalize();
+    return *this;
 }
 
 big_integer operator>>(big_integer a, int b)
