@@ -38,14 +38,14 @@ big_integer::big_integer(uint32_t x): sign(false), number({x}), first_non_zero_i
     //this->normalize();
 }
 
-uint32_t big_integer::digit_in_abs_format(size_t n) const
+inline uint32_t big_integer::digit_in_abs_format(size_t n) const
 {
     if (n >= size())
         return 0;
     return number[n];
 }
 
-uint32_t big_integer::digit_in_twos_complement(size_t n) const
+inline uint32_t big_integer::digit_in_twos_complement(size_t n) const
 {
     if (first_non_zero_index > n)
         return 0;
@@ -184,8 +184,43 @@ big_integer abs(big_integer const& x)
 
 big_integer operator+(big_integer a, const big_integer &b)
 {
+    if (!a.sign && b.sign)
+        return a - abs(b);
+    if (a.sign && !b.sign)
+        return b - abs(a);
+
     size_t max_len = std::max(a.size(), b.size());
-    std::vector <uint32_t> result;
+    std::vector <uint32_t> result(max_len + 1);
+
+    size_t i = 0;
+    uint64_t tmp = 0, carry = 0;
+    for (; i < max_len; ++i)
+    {
+        uint64_t x = a.digit_in_abs_format(i);
+        uint64_t y = b.digit_in_abs_format(i);
+        if (x < y)
+            x += carry;
+        else
+            y += carry;
+        tmp = x + y;
+        result[i] = static_cast<uint32_t>(tmp);
+        carry = tmp >> big_integer::LOG_BASE;
+    }
+
+    uint64_t x = a.digit_in_abs_format(i);
+    uint64_t y = b.digit_in_abs_format(i);
+    if (x < y)
+        x += carry;
+    else
+        y += carry;
+    tmp = x + y;
+    result[i] = static_cast<uint32_t>(tmp);
+
+    bool ans_sign = a.sign;
+    return big_integer(result, ans_sign);
+
+    /*size_t max_len = std::max(a.size(), b.size());
+    std::vector <uint32_t> result(max_len + 1);
 
     size_t i = 0;
     uint64_t tmp = 0, carry = 0;
@@ -198,20 +233,20 @@ big_integer operator+(big_integer a, const big_integer &b)
         else
             y += carry;
         tmp = x + y;
-        result.push_back(static_cast<uint32_t>(tmp));
+        result[i] = static_cast<uint32_t>(tmp);
         carry = tmp >> big_integer::LOG_BASE;
     }
     bool ans_sign = false;
     if ((!a.sign && b.sign && abs(a) < abs(b)) || (a.sign && !b.sign && abs(a) > abs(b)) || (a.sign && b.sign))
         ans_sign = true;
     if (ans_sign)
-        result.push_back(UINT32_MAX);
+        result[i] = (UINT32_MAX);
     else
         if (!b.sign && !a.sign)
-            result.push_back(static_cast<uint32_t>(carry));
+            result[i] = static_cast<uint32_t>(carry);
     big_integer temp(result, ans_sign, true);
     temp.normalize();
-    return temp;
+    return temp;*/
 }
 
 big_integer& big_integer::operator+=(big_integer const &rhs)
@@ -221,7 +256,41 @@ big_integer& big_integer::operator+=(big_integer const &rhs)
 
 big_integer operator-(big_integer a, big_integer const &b)
 {
-    return a + (-b);
+    if (!a.sign && b.sign)
+        return a + abs(b);
+    if (a.sign && !b.sign)
+        return -(abs(a) + b);
+
+    if (a.sign && b.sign)
+        return (abs(b) - abs(a));
+
+    if (a < b)
+    {
+        //std::cerr << a << std::endl << b << std::endl << b - a << std::endl;
+        return -(b - a);
+    }
+
+    size_t max_len = std::max(a.size(), b.size());
+    std::vector <uint32_t> result(max_len + 1);
+
+    size_t i = 0;
+    uint64_t tmp = 0, carry = 0;
+    for (; i < max_len; ++i)
+    {
+        uint64_t x = a.digit_in_abs_format(i);
+        uint64_t y = b.digit_in_abs_format(i);
+        tmp = x - y - carry;
+        result[i] = static_cast<uint32_t>(tmp);
+        carry = (tmp >> big_integer::LOG_BASE > 0 ? 1 : 0);
+    }
+
+    uint64_t x = a.digit_in_abs_format(i);
+    uint64_t y = b.digit_in_abs_format(i);
+    tmp = x - y - carry;
+    result[i] = static_cast<uint32_t>(tmp);
+
+    bool ans_sign = a.sign;
+    return big_integer(result, ans_sign);
 }
 
 big_integer& big_integer::operator-=(big_integer const &rhs)
