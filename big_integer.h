@@ -80,6 +80,7 @@ public:
     friend bool operator>=(big_integer const& a, big_integer const& b);
 
     friend void emplace_shl(std::vector<uint32_t> const &src, int b, std::vector<uint32_t> &dest);
+    friend void emplace_shr(std::vector<uint32_t> const &src, int b, std::vector<uint32_t> &dest);
 
     friend std::string to_string(big_integer const& a);
     friend big_integer from_string(std::string const& str);

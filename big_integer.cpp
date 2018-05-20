@@ -298,6 +298,8 @@ big_integer& big_integer::operator-=(big_integer const &rhs)
     return *this = *this - rhs;
 }
 
+// TODO: Сдвиги, избавиться от reverse()
+
 big_integer operator*(big_integer a, big_integer const &b)
 {
     if (a == 0 || b == 0)
@@ -738,38 +740,57 @@ big_integer& big_integer::operator<<=(int rhs)
     return *this;
 }
 
+void emplace_shr(std::vector<uint32_t> const &src, int b, std::vector<uint32_t> &dest)
+{
+    dest.resize(src.size() - b / big_integer::LOG_BASE);
+    b %= big_integer::LOG_BASE;
+
+    if (b > 0)
+    {
+        dest.push_back(0);
+        for (size_t i = 0; i < dest.size() - 1; i++)
+        {
+            uint64_t tmp = (static_cast<uint64_t>((i + 1 < src.size() ? src[i + 1] : 0)) << (big_integer::LOG_BASE))
+                           ^ static_cast<uint64_t>(src[i]);
+            tmp >>= b;
+            dest[i] |= static_cast<uint32_t>(tmp & UINT32_MAX);
+            dest[i + 1] |= static_cast<uint32_t>(tmp >> big_integer::LOG_BASE);
+        }
+    }
+}
+
 big_integer operator>>(big_integer a, int b)
 {
-    std::vector<uint32_t> res(a.number.size());
-
-    std::reverse(res.begin(), res.end());
-    while (static_cast<uint32_t>(b) >= big_integer::LOG_BASE)
-    {
-        res.pop_back();
-        b -= big_integer::LOG_BASE;
-    }
-    std::reverse(res.begin(), res.end());
+    /*std::vector<uint32_t> res(a.number.size() - b / big_integer::LOG_BASE);
+    b %= big_integer::LOG_BASE;
 
     if (b > 0)
     {
         res.push_back(0);
         for (size_t i = 0; i < res.size() - 1; i++)
         {
-            uint64_t tmp = (static_cast<uint64_t>((i + 1 < a.size() ? a.number[i + 1] : 0)) << (32))
+            uint64_t tmp = (static_cast<uint64_t>((i + 1 < a.size() ? a.number[i + 1] : 0)) << (big_integer::LOG_BASE))
                            ^ static_cast<uint64_t>(a.number[i]);
             tmp >>= b;
             res[i] |= static_cast<uint32_t>(tmp & UINT32_MAX);
-            res[i + 1] |= static_cast<uint32_t>(tmp >> 32);
+            res[i + 1] |= static_cast<uint32_t>(tmp >> big_integer::LOG_BASE);
         }
-    }
+    }*/
 
+    std::vector<uint32_t> res;
+    emplace_shr(a.number, b, res);
     big_integer tmp(res, a.sign);
     if (a.sign)
         tmp -= 1;
+    tmp.normalize();
     return tmp;
 }
 
 big_integer& big_integer::operator>>=(int rhs)
 {
-    return *this = *this >> rhs;
+    emplace_shr(this->number, rhs, this->number);
+    if (this->sign)
+        *this -= 1;
+    this->normalize();
+    return *this;
 }
